@@ -1,0 +1,73 @@
+name: Workflow Guardian
+description: Diagnose GitHub Actions runs and publish redacted incident reports
+branding:
+  icon: activity
+  color: purple
+inputs:
+  mode:
+    description: github for workflow_run, or schedule for an independent heartbeat
+    default: github
+  profile:
+    description: Optional extension rules, such as blog
+    default: generic
+  token:
+    description: GitHub token with actions read permission
+    default: ${{ github.token }}
+  notify:
+    description: Set to email to enable SMTP delivery
+    default: none
+  watch-workflow:
+    description: Workflow filename or ID for schedule mode
+  max-age-minutes:
+    description: Schedule freshness threshold
+    default: '180'
+runs:
+  using: composite
+  steps:
+    - name: Analyze run
+      id: analyze
+      shell: bash
+      env:
+        PYTHONPATH: ${{ github.action_path }}
+        GH_TOKEN: ${{ inputs.token }}
+        GUARDIAN_MODE: ${{ inputs.mode }}
+        GUARDIAN_PROFILE: ${{ inputs.profile }}
+        GUARDIAN_REPORT: ${{ runner.temp }}/workflow-guardian-incident.md
+        GUARDIAN_WATCH_WORKFLOW: ${{ inputs.watch-workflow }}
+        GUARDIAN_MAX_AGE_MINUTES: ${{ inputs.max-age-minutes }}
+        GUARDIAN_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      run: |
+        case "$GUARDIAN_MODE" in
+          github|schedule) python3 -m workflow_guardian "$GUARDIAN_MODE" ;;
+          *) echo "Invalid Guardian mode" >&2; exit 2 ;;
+        esac
+    - name: Save report
+      if: steps.analyze.outputs.incident != '' || steps.analyze.outputs.missed == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.analyze.outputs.incident || 'missed-schedule' }}
+        path: ${{ runner.temp }}/workflow-guardian-incident.md
+        overwrite: true
+        retention-days: 14
+    - name: Notify by email
+      id: mail
+      if: inputs.notify == 'email' && (steps.analyze.outputs.incident != '' || steps.analyze.outputs.missed == 'true')
+      shell: bash
+      env:
+        PYTHONPATH: ${{ github.action_path }}
+        GH_TOKEN: ${{ inputs.token }}
+        GUARDIAN_REPORT: ${{ runner.temp }}/workflow-guardian-incident.md
+        GUARDIAN_INCIDENT: ${{ steps.analyze.outputs.incident }}
+      run: |
+        if [ -n "$GUARDIAN_INCIDENT" ]; then
+          python3 -m workflow_guardian mail --incident "$GUARDIAN_INCIDENT"
+        else
+          python3 -m workflow_guardian mail
+        fi
+    - name: Save notification receipt
+      if: steps.mail.outputs.delivered == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.analyze.outputs.incident }}-email
+        path: ${{ runner.temp }}/workflow-guardian-incident.md
+        retention-days: 14
