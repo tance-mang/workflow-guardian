@@ -64,3 +64,7 @@ CLI 本地分析只输出分类、初步判断和修复建议。日志内容留�
 [Auto Blog Agent](https://github.com/tance-mang/auto-blog-agent) 负责博客写作、审核和发布。它通过独立工作流调用 Guardian，项目内也提供可复现的故障演练。
 
 MIT 许可，面向自动化开发者开放试用。欢迎提交脱敏故障样例、复现步骤和规则建议。由 tance-mang 发起，OpenAI Codex 协作实现与验证。[反馈入口](https://github.com/tance-mang/workflow-guardian/issues) · [QQ 邮箱](mailto:2123759705@qq.com) · [Gmail](mailto:tance.hub@gmail.com)
+
+## 验证记录
+
+2026-11-05，Guardian 的 6 项本地测试与 [GitHub CI](https://github.com/tance-mang/workflow-guardian/actions/runs/42055028738) 通过。Auto Blog Agent 接入后，[故障演练](https://github.com/tance-mang/auto-blog-agent/actions/runs/42055094513) 按预期失败，[跨仓库监测](https://github.com/tance-mang/auto-blog-agent/actions/runs/42055128853) 成功，已下载报告并确认命中模拟故障及对应尝试次数。[跨仓库漏跑检查](https://github.com/tance-mang/auto-blog-agent/actions/runs/42055103400) 也已成功运行。SMTP 实际投递和真实模型调用待配置后验证。
